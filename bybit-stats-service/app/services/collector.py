@@ -76,9 +76,9 @@ class ByBitCollector:
 
                 if count < 1000:  # Если данных мало, считаем базу пустой
                     print(
-                        f"История для {symbol} почти пуста. Скачиваем 60 дней через REST API..."
+                        f"История для {symbol} почти пуста. Скачиваем 60 (+5 с запасом) дней через REST API..."
                     )
-                    await self._fetch_kline_history(symbol, days=60)
+                    await self._fetch_kline_history(symbol, days=65)
                 else:
                     print(
                         f"История для {symbol} уже существует ({count} свечей). Пропуск скачивания."
