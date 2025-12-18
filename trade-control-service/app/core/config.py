@@ -23,7 +23,7 @@ class ControlSettings(BaseSettings):
 
     # Trading Logic
     LEVERAGE: int
-    TRADE_AMOUNT_USDT: FloatingPointError
+    TRADE_AMOUNT_USDT: float
     RECV_WINDOW: int
 
     @property
