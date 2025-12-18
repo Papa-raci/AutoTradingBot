@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+clickhouse-connect
+pydantic
+pydantic-settings
+python-dotenv
+apscheduler
+aio_pika
+sqlalchemy
+asyncpg

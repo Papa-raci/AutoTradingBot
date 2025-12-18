@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+clickhouse-connect
+websockets
+pydantic
+pydantic-settings
+python-dotenv
+aio_pika
+aiohttp
