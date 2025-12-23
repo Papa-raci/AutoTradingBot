@@ -4,7 +4,7 @@ from app.core.config import stats_settings
 
 class ClickHouseService:
     def __init__(self):
-        # Подключение. В docker-compose host обычно называется 'analytics_db'
+        
         self.client = clickhouse_connect.get_client(
             host=stats_settings.CLICKHOUSE_HOST,
             port=stats_settings.CLICKHOUSE_PORT,

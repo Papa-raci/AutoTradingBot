@@ -21,7 +21,7 @@ class ClickHouseClient:
             print("Подключение к ClickHouse (Signal Service) установлено.")
 
         except Exception as e:
-            print(f"Ошибка подключения к сClickHouse: {e}")
+            print(f"Ошибка подключения к ClickHouse: {e}")
             raise e
 
     def get_client(self):

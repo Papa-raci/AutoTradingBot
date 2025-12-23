@@ -8,3 +8,7 @@ sqlalchemy
 asyncpg
 pybit
 apscheduler
+pytest
+pytest-asyncio
+pytest-mock
+aiosqlite

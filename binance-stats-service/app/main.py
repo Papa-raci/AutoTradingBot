@@ -43,7 +43,6 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/health")
 def health_check(request: Request):
-    # Проверяем state
     if not hasattr(request.app.state, "collector"):
         return {"status": "starting", "details": "Collector not initialized yet"}
 

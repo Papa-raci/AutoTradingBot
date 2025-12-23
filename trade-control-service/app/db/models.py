@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, func
 from app.db.postgres import Base
 
-
 class Order(Base):
     __tablename__ = "orders"
 
@@ -17,7 +16,9 @@ class Order(Base):
 
     is_active = Column(Boolean, default=True)
 
-    # Время создания (UTC)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    # Время обновления
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    exit_reason = Column(String, nullable=True)  # "TP", "SL", "Manual", "Signal"
+    pnl = Column(Float, nullable=True)           # Прибыль в USDT

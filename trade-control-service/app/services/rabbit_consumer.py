@@ -4,11 +4,14 @@ import asyncio
 from app.core.config import control_settings
 from app.services.trader import TradingService
 from app.db.postgres import AsyncSessionLocal
+from app.services.notifier import RabbitNotifier
 
 
 async def start_consumer():
     """Слушает очередь сигналов и вызывает трейдера."""
     print(f"Подключение к RabbitMQ: {control_settings.RABBITMQ_HOST}...")
+
+    notifier = RabbitNotifier()
 
     connection = None
     while True:
@@ -20,6 +23,9 @@ async def start_consumer():
                 password=control_settings.RABBITMQ_PASSWORD,
             )
             print("RabbitMQ успешно подключен!")
+            await notifier.send_notification(
+                "🤖 SYSTEM ONLINE 🟢\nТорговый модуль запущен и ожидает сигналов."
+            )
             break
         except Exception as e:
             print(f"Ошибка подключения к RabbitMQ: {e}. Повтор через 5 сек...")

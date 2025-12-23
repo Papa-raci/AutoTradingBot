@@ -5,7 +5,10 @@ from app.db.postgres import engine, Base
 from app.db.postgres import AsyncSessionLocal
 from app.services.rabbit_consumer import start_consumer
 from app.services.trader import TradingService
+from app.services.notifier import RabbitNotifier
 
+
+notifier = RabbitNotifier()
 
 # Фоновая задача: бесконечный цикл мониторинга
 async def monitoring_loop():
@@ -21,7 +24,7 @@ async def monitoring_loop():
         await asyncio.sleep(5)
 
 
-@asynccontextmanager
+@asynccontextmanager  
 async def lifespan(app: FastAPI):
     # 1. Создаем таблицы в PostgreSQL
     async with engine.begin() as conn:
@@ -39,6 +42,9 @@ async def lifespan(app: FastAPI):
     # Корректное завершение при остановке контейнера
     print("Остановка сервисов...")
     consumer_task.cancel()
+    await notifier.send_notification(
+        "🤖 SYSTEM OFFLINE 🔴\nТорговый модуль остановлен."
+    )
     monitor_task.cancel()
 
 

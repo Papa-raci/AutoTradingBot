@@ -1,30 +1,24 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
-from sqlalchemy.orm import DeclarativeBase
-
-
-class Base(DeclarativeBase):
-    pass
-
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, func
+from app.db.postgres import Base
 
 class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
     symbol = Column(String, index=True)
-    side = Column(String)  # "Buy" (Long)
+    side = Column(String)  # "Buy" / "Sell"
 
-    entry_price = Column(Float)  # Цена входа
-    quantity = Column(Float)  # Размер позиции
+    entry_price = Column(Float)
+    quantity = Column(Float)
 
-    stop_loss = Column(Float)  # Текущий уровень SL
-    take_profit = Column(Float)  # Текущий уровень TP
+    stop_loss = Column(Float)
+    take_profit = Column(Float)
 
-    is_active = Column(Boolean, default=True)  # Открыта ли сделка
+    is_active = Column(Boolean, default=True)
 
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-    closed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    exit_reason = Column(String, nullable=True)  # "TP", "SL", "Time", "Signal"
-    pnl = Column(Float, nullable=True)  # Прибыль/убыток
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    exit_reason = Column(String, nullable=True)  # "TP", "SL", "Manual", "Signal"
+    pnl = Column(Float, nullable=True)           # Прибыль в USDT

@@ -155,7 +155,6 @@ class ByBitCollector:
                             f"... скачан блок истории для {symbol}. Прогресс: {last_candle_time}"
                         )
 
-                        # Защита от Rate Limit
                         await asyncio.sleep(0.1)
 
                 except Exception as e:

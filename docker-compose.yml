@@ -101,7 +101,7 @@ services:
         condition: service_healthy
     restart: always
     ports:
-      - "8020:8000" 
+      - "8020:8000"
 
   # 7. Trade Control Service
   # Слушает сигналы и цены, управляет ордерами на бирже
@@ -119,6 +119,19 @@ services:
     restart: always
     ports:
       - "8030:8000"
+
+
+  # 8. Notification Service
+  # Отправляет уведомления о сделках в Telegrem
+  notification_service:
+    build: ./notification-service
+    container_name: notification_service
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      rabbit:
+        condition: service_healthy
 
 volumes:
   analytics_data:

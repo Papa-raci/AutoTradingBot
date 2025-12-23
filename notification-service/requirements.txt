@@ -1,0 +1,4 @@
+aiogram
+aio_pika
+pydantic-settings
+asyncio

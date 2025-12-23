@@ -4,6 +4,7 @@ from app.repositories.order_repo import OrderRepository
 from app.infrastructure.bybit_client import client as bybit
 from app.db.models import Order
 from app.core.config import control_settings
+from app.services.notifier import RabbitNotifier
 
 
 def quantize_value(value: float, step: float) -> float:
@@ -15,8 +16,12 @@ def quantize_value(value: float, step: float) -> float:
 
 
 class TradingService:
+
+    _last_report_date = None
+
     def __init__(self, db_session):
         self.repo = OrderRepository(db_session)
+        self.notifier = RabbitNotifier()
 
     async def process_signal(self, signal: dict):
         """
@@ -47,7 +52,6 @@ class TradingService:
         Открывает позицию.
         Сразу ставит SL (-5%) и TP (+25%).
         """
-        # Проверка на дубли
         existing = await self.repo.get_active_order_by_symbol(symbol)
         if existing:
             print(f"Сделка по {symbol} уже существует. Пропуск.")
@@ -59,7 +63,6 @@ class TradingService:
             info = bybit.get_instrument_info(symbol)
             current_price = bybit.get_current_price(symbol)
 
-            # Расчет объема
             qty_step = info["qtyStep"]
             min_qty = info["minOrderQty"]
             tick_size = info["tickSize"]
@@ -74,7 +77,6 @@ class TradingService:
                 print(f"Объем {quantity} меньше минимального {min_qty}. Отмена.")
                 return
 
-            # Расчет стопов
             sl_price = quantize_value(current_price * 0.95, tick_size)
             tp_price = quantize_value(current_price * 1.25, tick_size)
 
@@ -91,7 +93,17 @@ class TradingService:
                 f"LONG открыт: {symbol} по цене {current_price}. SL={sl_price}, TP={tp_price}"
             )
 
-            # 3. Сохранение в БД
+            # 3. Уведомление в TG
+            msg = (
+                f"🚀 OPEN LONG: {symbol}\n"
+                f"Entry: {current_price}\n"
+                f"TP: {tp_price}\n"
+                f"SL: {sl_price}\n"
+                f"Size: {quantity}"
+            )
+            await self.notifier.send_notification(msg)
+
+            # 4. Сохранение в БД
             new_order = Order(
                 symbol=symbol,
                 side="Buy",
@@ -105,6 +117,12 @@ class TradingService:
 
         except Exception as e:
             print(f"Ошибка открытия {symbol}: {e}")
+            err_msg = (
+                f"⚠️ CRITICAL ERROR: {symbol}\n"
+                f"Не удалось открыть ордер!\n"
+                f"Error: {e}"
+            )
+            await self.notifier.send_notification(err_msg)
 
     async def close_long_position(self, symbol: str):
         """
@@ -126,16 +144,49 @@ class TradingService:
             if order:
                 await self.repo.close_order(order.id, reason="Сигнал_CLOSE_LONG")
                 print(f"Статус в БД обновлен (id={order.id}).")
+
+            msg = f"💰 CLOSED LONG: {symbol}\nСделка закрыта."
+            await self.notifier.send_notification(msg)
                 
         except Exception as e:
             print(f"Ошибка закрытия {symbol}: {e}")
+            err_msg = (
+                f"⚠️ CRITICAL ERROR: {symbol}\n"
+                f"Не удалось закрыть позицию!\n"
+                f"Error: {e}"
+            )
+            await self.notifier.send_notification(err_msg)
 
     async def monitor_positions(self):
         """
-        Фоновый мониторинг (код без изменений, как в твоем файле).
+        Фоновый мониторинг
         """
         active_orders = await self.repo.get_active_orders()
         now = datetime.now(timezone.utc)
+        today = now.date()
+
+        target_hour = 2         # UTC
+        
+        if now.hour == target_hour and TradingService._last_report_date != today:
+            try:
+                print("Формирование ежедневного отчета...")
+                balance = bybit.get_wallet_balance("USDT")
+
+                active_count = len(active_orders)
+                
+                msg = (
+                    f"☕ MORNING REPORT\n"
+                    f"📅 {today}\n"
+                    f"💰 Balance: ${balance:.2f}\n"
+                    f"📊 Active Positions: {active_count}\n"
+                    f"System Status: OK 🟢"
+                )
+                await self.notifier.send_notification(msg)
+                
+                TradingService._last_report_date = today
+                
+            except Exception as e:
+                print(f"Ошибка отправки отчета: {e}")
 
         is_daily_update_time = (
             now.hour == 0 and now.minute == 0 and 0 <= now.second < 10
@@ -154,6 +205,14 @@ class TradingService:
                     await self.repo.close_order(
                         order.id, reason="Ручной_или_SLTP_Выход"
                     )
+
+                    msg = (
+                        f"🔔 POSITION CLOSED: {order.symbol}\n"
+                        f"Сработал StopLoss или TakeProfit на бирже.\n"
+                        f"Сделка завершена."
+                    )
+                    await self.notifier.send_notification(msg)
+
                     continue
 
                 # B. Ручные изменения

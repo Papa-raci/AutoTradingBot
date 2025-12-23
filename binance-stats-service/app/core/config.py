@@ -1,5 +1,5 @@
 import json
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class BinanceSettings(BaseSettings):
@@ -25,9 +25,7 @@ class BinanceSettings(BaseSettings):
         except json.JSONDecodeError:
             return ["BTCUSDT"]
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding = "utf-8", extra="ignore")
 
 
 settings = BinanceSettings()

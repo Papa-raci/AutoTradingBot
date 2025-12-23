@@ -87,5 +87,20 @@ class ByBitClient:
             side = "Sell" if pos["side"] == "Buy" else "Buy"
             self.place_market_order(symbol, side, pos["size"])
 
+    def get_wallet_balance(self, coin="USDT") -> float:
+        """Получает баланс кошелька."""
+        try:
+            response = self.session.get_wallet_balance(accountType="UNIFIED", coin=coin)
+
+            if response["retCode"] == 0:
+                equity = response["result"]["list"][0]["coin"][0]["equity"]
+                return float(equity)
+            else:
+                print(f"Ошибка ByBit Balance: {response}")
+                return 0.0
+        except Exception as e:
+            print(f"Ошибка получения баланса: {e}")
+            return 0.0
+
 
 client = ByBitClient()
