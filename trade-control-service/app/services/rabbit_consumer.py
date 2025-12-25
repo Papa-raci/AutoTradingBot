@@ -3,7 +3,7 @@ import aio_pika
 import asyncio
 from app.core.config import control_settings
 from app.services.trader import TradingService
-from app.db.postgres import AsyncSessionLocal
+from app.db.postgres import db
 from app.services.notifier import RabbitNotifier
 
 
@@ -45,8 +45,8 @@ async def start_consumer():
                     data = json.loads(message.body)
                     print(f"ПОЛУЧЕН СИГНАЛ: {data}")
 
-                    async with AsyncSessionLocal() as db:
-                        trader = TradingService(db)
+                    async with db.pool.acquire() as conn:
+                        trader = TradingService(conn)
                         await trader.process_signal(data)
 
                 except Exception as e:

@@ -8,31 +8,32 @@ SIGNAL_CLOSE = {"action": "CLOSE_LONG", "symbol": "SOLUSDT"}
 
 @pytest.fixture
 def trader(mocker):
-    """Создает Трейдера с полным набором моков"""
-    db_session = MagicMock()
-    service = TradingService(db_session)
+    """Создает Трейдера с полным набором моков."""
+    mock_conn = AsyncMock()
+    service = TradingService(mock_conn)
 
     service.repo = AsyncMock()
     service.repo.get_active_order_by_symbol.return_value = None 
 
     service.bybit = mocker.patch("app.services.trader.bybit")
     service.bybit.get_instrument_info.return_value = {
-        "qtyStep": 0.1,         # float
-        "minOrderQty": 1.0,     # float
-        "tickSize": 0.01        # float
+        "qtyStep": 0.1,
+        "minOrderQty": 1.0,
+        "tickSize": 0.01
     }
     service.bybit.get_current_price.return_value = 100.0
     service.bybit.place_market_order.return_value = {"id": "123"}
  
     mocker.patch("app.services.trader.control_settings.TRADE_AMOUNT_USDT", 100.0)
     mocker.patch("app.services.trader.control_settings.LEVERAGE", 10)
+    
     service.notifier = AsyncMock() 
     
     return service
 
 @pytest.mark.asyncio
 async def test_open_long_success(trader):
-    """Сценарий: Успешное открытие лонга"""
+    """Сценарий: Успешное открытие лонга."""
     await trader.process_signal(SIGNAL_OPEN)
 
     trader.bybit.set_leverage.assert_called_with("SOLUSDT", 10)
@@ -41,13 +42,18 @@ async def test_open_long_success(trader):
     call_kwargs = trader.bybit.set_trading_stop.call_args[1]
     assert call_kwargs['sl'] == 95.0
     assert call_kwargs['tp'] == 125.0
-
     assert trader.repo.create_order.called
+    
+    saved_order = trader.repo.create_order.call_args[0][0]
+    assert isinstance(saved_order, dict)
+    assert saved_order["symbol"] == "SOLUSDT"
+    assert saved_order["entry_price"] == 100.0
+    
     assert trader.notifier.send_notification.called
 
 @pytest.mark.asyncio
 async def test_open_long_ignored_duplicate(trader):
-    """Сценарий: Сигнал пришел, но ордер в БД уже есть"""
+    """Сценарий: Сигнал пришел, но ордер в БД уже есть."""
     trader.repo.get_active_order_by_symbol.return_value = {"id": 1, "symbol": "SOLUSDT"}
     
     await trader.process_signal(SIGNAL_OPEN)
@@ -57,7 +63,7 @@ async def test_open_long_ignored_duplicate(trader):
 
 @pytest.mark.asyncio
 async def test_open_long_api_error(trader):
-    """Сценарий: Биржа вернула ошибку при открытии"""
+    """Сценарий: Биржа вернула ошибку при открытии."""
     trader.bybit.place_market_order.return_value = None
     
     await trader.process_signal(SIGNAL_OPEN)
@@ -66,13 +72,13 @@ async def test_open_long_api_error(trader):
 
 @pytest.mark.asyncio
 async def test_close_long_success(trader):
-    """Сценарий: Закрытие позиции по сигналу"""
-    mock_order = MagicMock()
-    mock_order.id = 555
+    """Сценарий: Закрытие позиции по сигналу."""
+    mock_order = {"id": 555, "symbol": "SOLUSDT"}
     trader.repo.get_active_order_by_symbol.return_value = mock_order
     
     await trader.process_signal(SIGNAL_CLOSE)
     
     trader.bybit.close_position.assert_called_with("SOLUSDT")
     trader.repo.close_order.assert_called_with(555, reason="Сигнал_CLOSE_LONG")
+    
     assert trader.notifier.send_notification.called

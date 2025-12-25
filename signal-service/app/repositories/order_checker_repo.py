@@ -1,18 +1,11 @@
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.models import Order
-
-
 class OrderCheckerRepository:
-    """Проверяет наличие активных сделок в Orders DB."""
+    """Проверяет наличие активных сделок."""
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    def __init__(self, connection):
+        self.conn = connection
 
     async def is_position_active(self, symbol: str) -> bool:
-        """Проверка, есть ли уже открытая сделка по этому символу."""
-        result = await self.db.execute(
-            select(Order.id).filter(Order.symbol == symbol, Order.is_active)
-        )
-        return result.scalar_one_or_none() is not None
+        """Проверка, есть ли уже открытая сделка."""
+        query = "SELECT 1 FROM orders WHERE symbol = $1 AND is_active = TRUE LIMIT 1"
+        val = await self.conn.fetchval(query, symbol)
+        return val is not None

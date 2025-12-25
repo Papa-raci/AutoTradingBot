@@ -4,14 +4,14 @@ from datetime import datetime, timedelta, timezone
 from app.repositories.candle_repo import CandleRepository
 from app.db.rabbitmq import rabbit_client
 from app.db.clickhouse import ch_client
-from app.db.postgres import AsyncSessionLocal
+from app.db.postgres import db
 from app.repositories.order_checker_repo import OrderCheckerRepository
 
 
 class SignalStrategyService:
 
     def __init__(self):
-        # Получаем клиент из глобального объекта (он уже подключен в main.py)
+        # Получаем клиент из глобального объекта
         self.candle_repo = CandleRepository(ch_client.get_client())
         self.rabbitmq_channel = rabbit_client
 
@@ -34,9 +34,9 @@ class SignalStrategyService:
             f"Анализ {symbol}: SignalDay={signal_day_start.date()}, Background={background_start.date()}-{background_end.date()}"
         )
 
-        # 2. Проверка активных позиций (чтобы не дублировать сделки)
-        async with AsyncSessionLocal() as db:
-            order_checker = OrderCheckerRepository(db)
+        # 2. Проверка активных позиций
+        async with db.pool.acquire() as conn:
+            order_checker = OrderCheckerRepository(conn)
             if await order_checker.is_position_active(symbol):
                 print(f"Активная позиция по {symbol} уже существует. Пропуск.")
                 return
@@ -55,7 +55,7 @@ class SignalStrategyService:
             )
             return
 
-        # 4. Проверка условий стратегии (ИСПРАВЛЕННАЯ ЛОГИКА)
+        # 4. Проверка условий стратегии
 
         # Условие А: Растущий ТРЕНД фона (Close конца > Close начала)
         trend_is_up = bg_data["end_price"] > bg_data["start_price"]
@@ -64,10 +64,7 @@ class SignalStrategyService:
         candle_is_red = sig_data["close"] < sig_data["open"]
 
         # Условие В: ВСПЛЕСК ОБЪЕМА
-        # Средний дневной объем за фон = Общий объем / 60
         avg_daily_volume = bg_data["total_period_volume"] / 60
-
-        # Объем сигнального дня должен быть БОЛЬШЕ (>) чем 2 * средний
         volume_spike = sig_data["volume"] > (2 * avg_daily_volume)
 
         print(
@@ -82,7 +79,7 @@ class SignalStrategyService:
             signal_payload = {
                 "action": "OPEN_LONG",
                 "symbol": symbol,
-                "entry_price": sig_data["close"],  # Для информации
+                "entry_price": sig_data["close"], 
                 "signal_time": datetime.now(timezone.utc).isoformat(),
             }
             await self.rabbitmq_channel.publish_signal(signal_payload)

@@ -6,7 +6,6 @@ pydantic-settings
 python-dotenv
 apscheduler
 aio_pika
-sqlalchemy[asyncio]
 asyncpg
 pytest
 pytest-asyncio
